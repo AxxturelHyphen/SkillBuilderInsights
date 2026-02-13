@@ -1,6 +1,5 @@
 /* ============================================================
-   styles.css — Dashboard de Solicitudes
-   Estética: editorial brutalista
+   db-manager.css — SkillBuilder Database Manager
    Paleta: #000000 / #ffffff / #f0f0f0
    Fuente: JetBrains Mono (exclusiva)
    ============================================================ */
@@ -48,7 +47,7 @@ body {
 /* --- LAYOUT PRINCIPAL --- */
 
 .container {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px 32px;
 }
@@ -188,7 +187,7 @@ body {
   border-bottom: 1px solid var(--negro);
 }
 
-/* --- FILTROS --- */
+/* --- FILTROS / SELECTOR DE COLECCIÓN --- */
 
 .filtros {
   display: flex;
@@ -217,13 +216,68 @@ body {
   color: var(--blanco);
 }
 
-/* --- TABLA DE SOLICITUDES --- */
+/* --- BARRA DE BÚSQUEDA --- */
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.search-bar__input {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 10px 14px;
+  border: 1px solid var(--negro);
+  background: var(--blanco);
+  color: var(--negro);
+  box-shadow: var(--sombra);
+  transition: transform var(--transicion), box-shadow var(--transicion);
+}
+
+.search-bar__input:focus {
+  outline: none;
+  transform: translate(-2px, -2px);
+  box-shadow: var(--sombra-hover);
+}
+
+.search-bar__input::placeholder {
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+}
+
+.search-bar__btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 20px;
+  border: 1px solid var(--negro);
+  background: var(--blanco);
+  color: var(--negro);
+  cursor: pointer;
+  transition: background var(--transicion), color var(--transicion);
+}
+
+.search-bar__btn:hover {
+  background: var(--negro);
+  color: var(--blanco);
+}
+
+/* --- TABLA DE DOCUMENTOS --- */
 
 .tabla-wrapper {
   border: 1px solid var(--negro);
   box-shadow: var(--sombra);
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .tabla {
@@ -244,17 +298,25 @@ body {
   text-align: left;
   border: 1px solid var(--negro);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .tabla td {
   padding: 10px 14px;
   border: 1px solid var(--negro);
   vertical-align: middle;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tabla tbody tr {
   background: var(--blanco);
   transition: background var(--transicion);
+  cursor: pointer;
 }
 
 .tabla tbody tr:hover {
@@ -290,75 +352,69 @@ body {
 .tabla tbody tr:nth-child(10) { animation-delay: 540ms; }
 .tabla tbody tr:nth-child(n+11) { animation-delay: 600ms; }
 
-/* Fila denegada — texto tachado */
-.tabla tbody tr.fila--denegada td {
-  text-decoration: line-through;
+/* --- PAGINACIÓN --- */
+
+.paginacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 24px;
+  border-top: 1px solid var(--negro);
+  border-bottom: 1px solid var(--negro);
 }
 
-/* --- BADGES DE ESTADO --- */
-
-.badge {
-  display: inline-block;
+.paginacion__btn {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  padding: 4px 8px;
-  border: 1px solid var(--negro);
-  white-space: nowrap;
-}
-
-.badge--pendiente {
-  background: var(--blanco);
-  color: var(--negro);
-  border-color: var(--negro);
-}
-
-.badge--confirmada {
-  background: var(--negro);
-  color: var(--blanco);
-}
-
-.badge--denegada {
-  background: var(--blanco);
-  color: var(--negro);
-  text-decoration: line-through;
-}
-
-/* --- BOTONES DE ACCIÓN --- */
-
-.acciones {
-  display: flex;
-  gap: 6px;
-}
-
-.btn-accion {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 6px 10px;
+  padding: 10px 20px;
   border: 1px solid var(--negro);
   background: var(--blanco);
   color: var(--negro);
   cursor: pointer;
   transition: background var(--transicion), color var(--transicion);
-  white-space: nowrap;
 }
 
-.btn-accion:hover {
+.paginacion__btn:hover:not(:disabled) {
   background: var(--negro);
   color: var(--blanco);
 }
 
-.btn-accion:disabled {
+.paginacion__btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
 
-.btn-accion:disabled:hover {
+.paginacion__info {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* --- BADGES --- */
+
+.badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 6px;
+  border: 1px solid var(--negro);
+  white-space: nowrap;
+}
+
+.badge--activo {
+  background: var(--negro);
+  color: var(--blanco);
+}
+
+.badge--inactivo {
   background: var(--blanco);
   color: var(--negro);
 }
@@ -372,7 +428,7 @@ body {
   letter-spacing: 0.1em;
   padding: 8px 12px;
   border: 1px solid var(--negro);
-  margin-top: 8px;
+  margin-bottom: 16px;
   display: none;
 }
 
@@ -395,6 +451,7 @@ body {
   box-shadow: var(--sombra);
   background: var(--blanco);
   transition: transform var(--transicion), box-shadow var(--transicion);
+  min-height: 200px;
 }
 
 .grafica-card:hover {
@@ -412,26 +469,50 @@ body {
   border-bottom: 1px solid var(--negro);
 }
 
-/* Animación para barras del gráfico */
+/* Estilos para gráficas simples (barras/bloques) */
+.chart-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+  padding: 10px 0;
+}
+
+.chart-bar__item {
+  flex: 1;
+  background: var(--negro);
+  border: 1px solid var(--negro);
+  transition: transform var(--transicion);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  animation: barGrow 600ms ease forwards;
+}
+
+.chart-bar__item:hover {
+  transform: translateY(-4px);
+}
+
+.chart-bar__label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.chart-bar__value {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--blanco);
+  padding: 4px;
+}
+
 @keyframes barGrow {
   from {
     height: 0;
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes distGrow {
-  from {
-    transform: scaleX(0);
-    transform-origin: left;
-  }
-  to {
-    transform: scaleX(1);
-    transform-origin: left;
   }
 }
 
@@ -493,7 +574,7 @@ body {
   border: 1px solid var(--negro);
   box-shadow: 8px 8px 0 var(--negro);
   padding: 24px;
-  max-width: 520px;
+  max-width: 700px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
@@ -510,7 +591,9 @@ body {
 }
 
 .detalle-panel__campo {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--superficie);
 }
 
 .detalle-panel__label {
@@ -519,13 +602,23 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--negro);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .detalle-panel__valor {
-  font-size: 13px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--superficie);
+  font-size: 12px;
+  padding: 4px 0;
+  word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.detalle-panel__valor--json {
+  background: var(--superficie);
+  padding: 8px;
+  font-size: 11px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  border: 1px solid var(--negro);
 }
 
 .detalle-panel__cerrar {
@@ -541,6 +634,7 @@ body {
   cursor: pointer;
   margin-top: 16px;
   transition: background var(--transicion), color var(--transicion);
+  width: 100%;
 }
 
 .detalle-panel__cerrar:hover {
@@ -627,6 +721,15 @@ body {
     padding: 6px 10px;
     font-size: 10px;
   }
+
+  .search-bar {
+    flex-direction: column;
+  }
+
+  .paginacion {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -636,10 +739,5 @@ body {
 
   .stats__valor {
     font-size: 24px;
-  }
-
-  .acciones {
-    flex-direction: column;
-    gap: 4px;
   }
 }

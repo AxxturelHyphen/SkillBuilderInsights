@@ -1,528 +1,521 @@
 // ============================================================
-// app.js — Lógica principal del dashboard de solicitudes
+// db-manager.js — SkillBuilder Database Manager
 // ============================================================
 
-// Estado global de la aplicación
-const estado = {
-  solicitudes: [],        // Todas las solicitudes cargadas
-  filtroActual: null,     // null = todas, o 'pendiente'/'confirmada'/'denegada'
-  conectado: false,       // Estado de conexión a MongoDB
-  pollingId: null,        // ID del intervalo de polling
-  cargando: true          // Indicador de carga inicial
-}
+// Configuración
+const BACKEND_URL = 'http://localhost:3000/api';
+const POLLING_INTERVAL = 30000;
+const ITEMS_PER_PAGE = 20;
+
+// Estado de la aplicación
+let state = {
+  coleccionActual: 'mentors',
+  documentos: [],
+  documentosFiltrados: [],
+  paginaActual: 1,
+  busqueda: '',
+  mockMode: false,
+  stats: {
+    mentors: 0,
+    projects: 0,
+    tasks: 0,
+    users: 0,
+    resources: 0
+  }
+};
+
+// Schemas de colecciones (para renderizar columnas)
+const SCHEMAS = {
+  mentors: ['_id', 'name', 'email', 'skills', 't_level', 'createdAt'],
+  projects: ['_id', 'name', 'description', 'owner', 'workspaceId', 'taskCounts', 'startDate'],
+  tasks: ['_id', 'title', 'status', 'projectId', 'mentorId', 'dueDate', 'createdAt'],
+  users: ['_id', 'name', 'email', 'workspaceId', 'createdAt'],
+  resources: ['_id', 'name', 'type', 'url', 'projectId', 'workspaceId']
+};
+
+// Datos mock para modo demo
+const MOCK_DATA = {
+  mentors: [
+    { _id: '507f1f77bcf86cd799439011', name: 'Dr. Ada Lovelace', email: 'ada@skillbuilder.dev', skills: ['Python', 'Algorithm Design', 'Math'], t_level: 3, createdAt: '2025-01-15T10:30:00Z' },
+    { _id: '507f1f77bcf86cd799439012', name: 'Alan Turing', email: 'alan@skillbuilder.dev', skills: ['Cryptography', 'Computing Theory'], t_level: 4, createdAt: '2025-01-12T14:20:00Z' },
+    { _id: '507f1f77bcf86cd799439013', name: 'Grace Hopper', email: 'grace@skillbuilder.dev', skills: ['COBOL', 'Compilers', 'Navy'], t_level: 5, createdAt: '2025-01-10T09:15:00Z' }
+  ],
+  projects: [
+    { _id: '507f1f77bcf86cd799439021', name: 'Analytical Engine', description: 'Build first general-purpose computer', owner: 'ada@skillbuilder.dev', workspaceId: 'ws001', taskCounts: { todo: 12, doing: 5, done: 23 }, startDate: '2025-01-01', createdAt: '2025-01-01T08:00:00Z' },
+    { _id: '507f1f77bcf86cd799439022', name: 'Enigma Decryption', description: 'Break German encryption', owner: 'alan@skillbuilder.dev', workspaceId: 'ws001', taskCounts: { todo: 3, doing: 2, done: 45 }, startDate: '2025-01-05', createdAt: '2025-01-05T11:30:00Z' }
+  ],
+  tasks: [
+    { _id: '507f1f77bcf86cd799439031', title: 'Design punch card system', status: 'done', projectId: '507f1f77bcf86cd799439021', mentorId: '507f1f77bcf86cd799439011', dueDate: '2025-02-01', createdAt: '2025-01-15T10:00:00Z' },
+    { _id: '507f1f77bcf86cd799439032', title: 'Implement barrel shift', status: 'doing', projectId: '507f1f77bcf86cd799439021', mentorId: '507f1f77bcf86cd799439011', dueDate: '2025-02-10', createdAt: '2025-01-16T14:30:00Z' },
+    { _id: '507f1f77bcf86cd799439033', title: 'Optimize bombe machine', status: 'todo', projectId: '507f1f77bcf86cd799439022', mentorId: '507f1f77bcf86cd799439012', dueDate: '2025-02-15', createdAt: '2025-01-18T09:00:00Z' },
+    { _id: '507f1f77bcf86cd799439034', title: 'Test rotor configurations', status: 'done', projectId: '507f1f77bcf86cd799439022', mentorId: '507f1f77bcf86cd799439012', dueDate: '2025-01-25', createdAt: '2025-01-14T16:45:00Z' }
+  ],
+  users: [
+    { _id: '507f1f77bcf86cd799439041', name: 'Charles Babbage', email: 'charles@skillbuilder.dev', workspaceId: 'ws001', createdAt: '2025-01-08T10:00:00Z' },
+    { _id: '507f1f77bcf86cd799439042', name: 'Margaret Hamilton', email: 'margaret@skillbuilder.dev', workspaceId: 'ws001', createdAt: '2025-01-09T11:20:00Z' }
+  ],
+  resources: [
+    { _id: '507f1f77bcf86cd799439051', name: 'Difference Engine Blueprints', type: 'PDF', url: 'https://docs.skillbuilder.dev/blueprints.pdf', projectId: '507f1f77bcf86cd799439021', workspaceId: 'ws001', createdAt: '2025-01-10T08:30:00Z' },
+    { _id: '507f1f77bcf86cd799439052', name: 'Enigma Specifications', type: 'Document', url: 'https://docs.skillbuilder.dev/enigma.pdf', projectId: '507f1f77bcf86cd799439022', workspaceId: 'ws001', createdAt: '2025-01-11T14:15:00Z' }
+  ]
+};
 
 // ============================================================
 // INICIALIZACIÓN
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Verificar conexión a MongoDB
-  const conectado = await verificarConexion()
-  estado.conectado = conectado
-  MOCK_MODE = !conectado
+  console.log('[DB Manager] Iniciando aplicación...');
 
-  actualizarIndicadorConexion()
+  // Configurar event listeners
+  setupEventListeners();
 
-  // Si estamos en modo mock, mostrar banner
-  if (MOCK_MODE) {
-    mostrarBannerMock()
-  }
+  // Cargar datos iniciales
+  await cargarDatos();
 
-  // Cargar solicitudes iniciales
-  await cargarSolicitudes()
+  // Iniciar polling
+  setInterval(cargarDatos, POLLING_INTERVAL);
+});
 
-  // Configurar filtros
-  configurarFiltros()
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
 
-  // Configurar modal de detalle
-  configurarModal()
+function setupEventListeners() {
+  // Botones de selección de colección
+  document.querySelectorAll('.filtros__btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const coleccion = e.target.dataset.coleccion;
+      cambiarColeccion(coleccion);
+    });
+  });
 
-  // Iniciar polling automático
-  iniciarPolling()
+  // Búsqueda
+  const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-btn');
+  const clearBtn = document.getElementById('clear-btn');
 
-  estado.cargando = false
-})
+  searchBtn.addEventListener('click', () => {
+    state.busqueda = searchInput.value.toLowerCase();
+    state.paginaActual = 1;
+    aplicarFiltros();
+    renderizarTabla();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    state.busqueda = '';
+    state.paginaActual = 1;
+    aplicarFiltros();
+    renderizarTabla();
+  });
+
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      searchBtn.click();
+    }
+  });
+
+  // Paginación
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    if (state.paginaActual > 1) {
+      state.paginaActual--;
+      renderizarTabla();
+      actualizarPaginacion();
+    }
+  });
+
+  document.getElementById('next-btn').addEventListener('click', () => {
+    const totalPaginas = Math.ceil(state.documentosFiltrados.length / ITEMS_PER_PAGE);
+    if (state.paginaActual < totalPaginas) {
+      state.paginaActual++;
+      renderizarTabla();
+      actualizarPaginacion();
+    }
+  });
+}
 
 // ============================================================
 // CARGA DE DATOS
 // ============================================================
 
-/**
- * Cargar solicitudes desde la base de datos y actualizar toda la UI
- */
-async function cargarSolicitudes() {
+async function cargarDatos() {
+  console.log('[DB Manager] Cargando datos...');
+
   try {
-    const solicitudes = await fetchSolicitudes()
-    estado.solicitudes = solicitudes
-    renderizarTodo()
-  } catch (e) {
-    console.error('[ERROR] cargarSolicitudes:', e.message)
-    mostrarError('Error al cargar solicitudes')
+    // Intentar cargar stats de todas las colecciones
+    await cargarStats();
+
+    // Cargar documentos de la colección actual
+    await cargarDocumentos(state.coleccionActual);
+
+    // Actualizar UI
+    actualizarIndicadorConexion(true);
+    actualizarUltimoRefresh();
+
+  } catch (error) {
+    console.error('[DB Manager] Error cargando datos:', error);
+    activarModoMock();
   }
 }
 
-/**
- * Renderizar todos los componentes de la UI
- */
-function renderizarTodo() {
-  renderizarEstadisticas()
-  renderizarTabla()
-  renderizarGraficas()
+async function cargarStats() {
+  for (const coleccion of Object.keys(state.stats)) {
+    try {
+      const response = await fetch(`${BACKEND_URL}/${coleccion}/count`);
+      if (!response.ok) throw new Error('Backend no disponible');
+
+      const data = await response.json();
+      state.stats[coleccion] = data.count || 0;
+    } catch (error) {
+      // En caso de error, usar datos mock
+      state.stats[coleccion] = MOCK_DATA[coleccion]?.length || 0;
+    }
+  }
+
+  actualizarStatsUI();
+}
+
+async function cargarDocumentos(coleccion) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/${coleccion}`);
+    if (!response.ok) throw new Error('Backend no disponible');
+
+    const data = await response.json();
+    state.documentos = data.documents || data || [];
+
+  } catch (error) {
+    console.warn(`[DB Manager] Usando datos mock para ${coleccion}`);
+    state.documentos = MOCK_DATA[coleccion] || [];
+  }
+
+  aplicarFiltros();
+  renderizarTabla();
+  renderizarGraficas();
 }
 
 // ============================================================
-// ESTADÍSTICAS
+// CAMBIO DE COLECCIÓN
 // ============================================================
 
-/**
- * Calcular y mostrar las estadísticas rápidas
- */
-function renderizarEstadisticas() {
-  const stats = calcularEstadisticas()
+function cambiarColeccion(coleccion) {
+  state.coleccionActual = coleccion;
+  state.paginaActual = 1;
+  state.busqueda = '';
+  document.getElementById('search-input').value = '';
 
-  document.getElementById('stat-total').textContent = stats.total
-  document.getElementById('stat-pendiente').textContent = stats.pendiente
-  document.getElementById('stat-confirmada').textContent = stats.confirmada
-  document.getElementById('stat-denegada').textContent = stats.denegada
+  // Actualizar botones activos
+  document.querySelectorAll('.filtros__btn').forEach(btn => {
+    btn.classList.toggle('filtros__btn--activo', btn.dataset.coleccion === coleccion);
+  });
+
+  // Actualizar título de sección
+  document.getElementById('coleccion-nombre').textContent = coleccion.toUpperCase();
+
+  // Cargar documentos de la nueva colección
+  cargarDocumentos(coleccion);
 }
 
-/**
- * Calcular conteos por estado
- * @returns {Object} { total, pendiente, confirmada, denegada }
- */
-function calcularEstadisticas() {
-  const solicitudes = estado.solicitudes
-  return {
-    total: solicitudes.length,
-    pendiente: solicitudes.filter(s => s.estado === 'pendiente').length,
-    confirmada: solicitudes.filter(s => s.estado === 'confirmada').length,
-    denegada: solicitudes.filter(s => s.estado === 'denegada').length
+// ============================================================
+// FILTROS Y BÚSQUEDA
+// ============================================================
+
+function aplicarFiltros() {
+  state.documentosFiltrados = state.documentos;
+
+  // Aplicar búsqueda si existe
+  if (state.busqueda) {
+    state.documentosFiltrados = state.documentos.filter(doc => {
+      const searchableText = JSON.stringify(doc).toLowerCase();
+      return searchableText.includes(state.busqueda);
+    });
   }
 }
 
 // ============================================================
-// TABLA DE SOLICITUDES
+// RENDERIZADO
 // ============================================================
 
-/**
- * Renderizar la tabla con las solicitudes filtradas
- */
 function renderizarTabla() {
-  const tbody = document.getElementById('tabla-body')
-  const solicitudesFiltradas = obtenerSolicitudesFiltradas()
+  const thead = document.getElementById('tabla-head');
+  const tbody = document.getElementById('tabla-body');
+  const schema = SCHEMAS[state.coleccionActual] || ['_id'];
 
-  if (solicitudesFiltradas.length === 0) {
+  // Renderizar encabezados
+  thead.innerHTML = `
+    <tr>
+      ${schema.map(campo => `<th>${campo.toUpperCase()}</th>`).join('')}
+      <th>ACCIONES</th>
+    </tr>
+  `;
+
+  // Calcular documentos para la página actual
+  const inicio = (state.paginaActual - 1) * ITEMS_PER_PAGE;
+  const fin = inicio + ITEMS_PER_PAGE;
+  const documentosPagina = state.documentosFiltrados.slice(inicio, fin);
+
+  // Renderizar filas
+  if (documentosPagina.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="tabla-vacia">
-          NO HAY SOLICITUDES ${estado.filtroActual ? '[ ' + estado.filtroActual.toUpperCase() + ' ]' : ''}
+        <td colspan="${schema.length + 1}" class="tabla-vacia">
+          NO HAY DOCUMENTOS QUE MOSTRAR
         </td>
       </tr>
-    `
-    return
+    `;
+    actualizarPaginacion();
+    return;
   }
 
-  tbody.innerHTML = solicitudesFiltradas.map((s, index) => {
-    const esNueva = s._nueva ? ' style="background: var(--superficie);"' : ''
-    const claseDenegada = s.estado === 'denegada' ? ' fila--denegada' : ''
-    const idCorto = (s._id || '').substring(0, 8)
-    const fecha = formatearFecha(s.fechaSolicitada)
-    const hora = s.horaSolicitada || '--:--'
+  tbody.innerHTML = documentosPagina.map(doc => {
+    const celdas = schema.map(campo => {
+      let valor = doc[campo];
+
+      // Formatear valores especiales
+      if (valor === null || valor === undefined) {
+        return '<td>—</td>';
+      }
+
+      if (typeof valor === 'object' && !Array.isArray(valor)) {
+        return `<td>${JSON.stringify(valor)}</td>`;
+      }
+
+      if (Array.isArray(valor)) {
+        return `<td>${valor.join(', ')}</td>`;
+      }
+
+      if (campo === 'status') {
+        return `<td><span class="badge ${valor === 'done' ? 'badge--activo' : 'badge--inactivo'}">${valor}</span></td>`;
+      }
+
+      // Truncar strings largos
+      const valorStr = String(valor);
+      const truncado = valorStr.length > 50 ? valorStr.substring(0, 47) + '...' : valorStr;
+
+      return `<td>${truncado}</td>`;
+    }).join('');
 
     return `
-      <tr class="fila${claseDenegada}" data-id="${s._id}"${esNueva}>
-        <td class="celda-id" title="${s._id}">${idCorto}</td>
+      <tr onclick="mostrarDetalle('${doc._id}')">
+        ${celdas}
         <td>
-          <span class="nombre-cliente" role="button" tabindex="0"
-                onclick="mostrarDetalle('${s._id}')"
-                onkeydown="if(event.key==='Enter')mostrarDetalle('${s._id}')">
-            ${escapeHtml(s.nombreCliente || 'Sin nombre')}
-          </span>
-        </td>
-        <td>${fecha} ${hora}</td>
-        <td>${escapeHtml(s.servicio || 'Sin servicio')}</td>
-        <td>${generarBadge(s.estado)}</td>
-        <td>
-          <div class="acciones">
-            ${s.estado === 'pendiente' ? `
-              <button class="btn-accion" onclick="confirmarSolicitud('${s._id}')">CONFIRMAR</button>
-              <button class="btn-accion" onclick="denegarSolicitud('${s._id}')">DENEGAR</button>
-            ` : `
-              <button class="btn-accion" disabled>---</button>
-            `}
-          </div>
+          <button class="btn-accion" onclick="event.stopPropagation(); mostrarDetalle('${doc._id}')">VER</button>
         </td>
       </tr>
-    `
-  }).join('')
+    `;
+  }).join('');
+
+  actualizarPaginacion();
 }
 
-/**
- * Obtener solicitudes según el filtro activo
- * @returns {Array} Solicitudes filtradas
- */
-function obtenerSolicitudesFiltradas() {
-  if (!estado.filtroActual) return estado.solicitudes
-  return estado.solicitudes.filter(s => s.estado === estado.filtroActual)
+function actualizarStatsUI() {
+  document.getElementById('stat-mentors').textContent = state.stats.mentors;
+  document.getElementById('stat-projects').textContent = state.stats.projects;
+  document.getElementById('stat-tasks').textContent = state.stats.tasks;
+  document.getElementById('stat-users').textContent = state.stats.users;
+  document.getElementById('stat-resources').textContent = state.stats.resources;
 }
 
-/**
- * Generar HTML del badge de estado
- * @param {string} estadoSolicitud - 'pendiente', 'confirmada', 'denegada'
- * @returns {string} HTML del badge
- */
-function generarBadge(estadoSolicitud) {
-  const clase = `badge--${estadoSolicitud}`
-  const texto = estadoSolicitud.toUpperCase()
-  return `<span class="badge ${clase}">${texto}</span>`
-}
+function actualizarPaginacion() {
+  const totalDocs = state.documentosFiltrados.length;
+  const totalPaginas = Math.ceil(totalDocs / ITEMS_PER_PAGE);
+  const inicio = (state.paginaActual - 1) * ITEMS_PER_PAGE + 1;
+  const fin = Math.min(state.paginaActual * ITEMS_PER_PAGE, totalDocs);
 
-// ============================================================
-// ACCIONES: CONFIRMAR / DENEGAR
-// ============================================================
+  document.getElementById('pagina-actual').textContent = state.paginaActual;
+  document.getElementById('documentos-desde').textContent = totalDocs > 0 ? inicio : 0;
+  document.getElementById('documentos-hasta').textContent = fin;
+  document.getElementById('documentos-total').textContent = totalDocs;
 
-/**
- * Confirmar una solicitud (optimistic UI)
- * @param {string} id - ID de la solicitud
- */
-async function confirmarSolicitud(id) {
-  await cambiarEstado(id, 'confirmada')
-}
-
-/**
- * Denegar una solicitud (optimistic UI)
- * @param {string} id - ID de la solicitud
- */
-async function denegarSolicitud(id) {
-  await cambiarEstado(id, 'denegada')
-}
-
-/**
- * Cambiar el estado de una solicitud con optimistic UI
- * @param {string} id - ID de la solicitud
- * @param {string} nuevoEstado - Nuevo estado a establecer
- */
-async function cambiarEstado(id, nuevoEstado) {
-  // Guardar estado anterior para posible reversión
-  const solicitud = estado.solicitudes.find(s => s._id === id)
-  if (!solicitud) return
-
-  const estadoAnterior = solicitud.estado
-
-  // Optimistic UI: actualizar inmediatamente
-  solicitud.estado = nuevoEstado
-  solicitud.fechaActualizacion = new Date().toISOString()
-  renderizarTodo()
-
-  try {
-    // Enviar actualización al servidor
-    await actualizarEstado(id, nuevoEstado)
-  } catch (e) {
-    // Si falla, revertir el cambio
-    solicitud.estado = estadoAnterior
-    solicitud.fechaActualizacion = null
-    renderizarTodo()
-    mostrarError(`[ERROR] No se pudo actualizar la solicitud ${id.substring(0, 8)}`)
-  }
-}
-
-// ============================================================
-// FILTROS
-// ============================================================
-
-/**
- * Configurar los botones de filtro
- */
-function configurarFiltros() {
-  const contenedor = document.getElementById('filtros')
-  const botones = contenedor.querySelectorAll('.filtros__btn')
-
-  botones.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const filtro = btn.dataset.filtro || null
-
-      // Actualizar estado
-      estado.filtroActual = filtro
-
-      // Actualizar clases de botones
-      botones.forEach(b => b.classList.remove('filtros__btn--activo'))
-      btn.classList.add('filtros__btn--activo')
-
-      // Re-renderizar tabla
-      renderizarTabla()
-    })
-  })
+  document.getElementById('prev-btn').disabled = state.paginaActual <= 1;
+  document.getElementById('next-btn').disabled = state.paginaActual >= totalPaginas || totalDocs === 0;
 }
 
 // ============================================================
 // GRÁFICAS
 // ============================================================
 
-/**
- * Renderizar las dos gráficas SVG
- */
 function renderizarGraficas() {
-  const stats = calcularEstadisticas()
-
-  // Gráfica de barras — solicitudes por día
-  const contenedorBarras = document.getElementById('grafica-barras')
-  contenedorBarras.innerHTML = generarGraficaBarras(estado.solicitudes)
-
-  // Gráfica de distribución de estados
-  const contenedorEstados = document.getElementById('grafica-estados')
-  contenedorEstados.innerHTML = generarGraficaEstados(stats)
-
-  // Animar barras después de insertar en el DOM
-  animarBarras()
+  renderizarGraficaEstados();
+  renderizarGraficaActividad();
 }
 
-/**
- * Animar las barras del gráfico (crecimiento desde 0)
- */
-function animarBarras() {
-  const barras = document.querySelectorAll('.chart-bar')
-  barras.forEach(barra => {
-    const targetY = parseFloat(barra.getAttribute('data-target-y'))
-    const targetHeight = parseFloat(barra.getAttribute('data-target-height'))
-    const delay = parseFloat(barra.style.animationDelay) || 0
+function renderizarGraficaEstados() {
+  const container = document.getElementById('grafica-estados');
 
-    // Establecer posición inicial
-    const baseY = parseFloat(barra.getAttribute('y'))
+  if (state.coleccionActual !== 'tasks') {
+    container.innerHTML = '<div style="padding: 20px; text-align: center; font-size: 11px; color: #999;">SOLO DISPONIBLE PARA TASKS</div>';
+    return;
+  }
 
-    setTimeout(() => {
-      barra.setAttribute('y', targetY)
-      barra.setAttribute('height', targetHeight)
-      barra.style.transition = 'y 400ms ease, height 400ms ease'
-    }, delay)
-  })
+  // Contar estados
+  const estados = { todo: 0, doing: 0, done: 0 };
+  state.documentos.forEach(task => {
+    if (task.status && estados.hasOwnProperty(task.status)) {
+      estados[task.status]++;
+    }
+  });
+
+  const total = Object.values(estados).reduce((a, b) => a + b, 0);
+
+  if (total === 0) {
+    container.innerHTML = '<div style="padding: 20px; text-align: center;">SIN DATOS</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="chart-bar">
+      ${Object.entries(estados).map(([estado, count]) => {
+        const height = total > 0 ? (count / total) * 100 : 0;
+        return `
+          <div class="chart-bar__item" style="height: ${height}%">
+            <div class="chart-bar__value">${count}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+      ${Object.keys(estados).map(estado =>
+        `<div class="chart-bar__label">${estado.toUpperCase()}</div>`
+      ).join('')}
+    </div>
+  `;
+}
+
+function renderizarGraficaActividad() {
+  const container = document.getElementById('grafica-actividad');
+
+  // Obtener documentos de los últimos 7 días
+  const hoy = new Date();
+  const hace7Dias = new Date(hoy);
+  hace7Dias.setDate(hoy.getDate() - 7);
+
+  const actividadPorDia = {};
+  for (let i = 0; i < 7; i++) {
+    const fecha = new Date(hace7Dias);
+    fecha.setDate(hace7Dias.getDate() + i);
+    const key = fecha.toISOString().split('T')[0];
+    actividadPorDia[key] = 0;
+  }
+
+  // Contar documentos por día
+  state.documentos.forEach(doc => {
+    if (doc.createdAt) {
+      const fecha = new Date(doc.createdAt).toISOString().split('T')[0];
+      if (actividadPorDia.hasOwnProperty(fecha)) {
+        actividadPorDia[fecha]++;
+      }
+    }
+  });
+
+  const valores = Object.values(actividadPorDia);
+  const maximo = Math.max(...valores, 1);
+
+  container.innerHTML = `
+    <div class="chart-bar">
+      ${valores.map(count => {
+        const height = (count / maximo) * 100;
+        return `
+          <div class="chart-bar__item" style="height: ${height}%">
+            <div class="chart-bar__value">${count}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+      ${Object.keys(actividadPorDia).map(fecha => {
+        const dia = new Date(fecha).getDate();
+        return `<div class="chart-bar__label">${dia}</div>`;
+      }).join('')}
+    </div>
+  `;
 }
 
 // ============================================================
 // MODAL DE DETALLE
 // ============================================================
 
-/**
- * Configurar el overlay del modal
- */
-function configurarModal() {
-  const overlay = document.getElementById('detalle-overlay')
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) cerrarDetalle()
-  })
+function mostrarDetalle(docId) {
+  const documento = state.documentosFiltrados.find(d => d._id === docId);
+  if (!documento) return;
 
-  // Cerrar con Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') cerrarDetalle()
-  })
-}
+  const contenido = document.getElementById('detalle-contenido');
 
-/**
- * Mostrar el panel de detalle de una solicitud
- * @param {string} id - ID de la solicitud
- */
-function mostrarDetalle(id) {
-  const solicitud = estado.solicitudes.find(s => s._id === id)
-  if (!solicitud) return
+  // Renderizar todos los campos del documento
+  contenido.innerHTML = Object.entries(documento).map(([key, value]) => {
+    let valorFormateado = value;
 
-  const panel = document.getElementById('detalle-contenido')
-  panel.innerHTML = `
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">ID</div>
-      <div class="detalle-panel__valor">${solicitud._id}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">CLIENTE</div>
-      <div class="detalle-panel__valor">${escapeHtml(solicitud.nombreCliente || 'Sin nombre')}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">TELEFONO</div>
-      <div class="detalle-panel__valor">${escapeHtml(solicitud.telefonoCliente || 'No disponible')}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">SERVICIO</div>
-      <div class="detalle-panel__valor">${escapeHtml(solicitud.servicio || 'Sin servicio')}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">FECHA SOLICITADA</div>
-      <div class="detalle-panel__valor">${formatearFecha(solicitud.fechaSolicitada)} ${solicitud.horaSolicitada || ''}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">ESTADO</div>
-      <div class="detalle-panel__valor">${generarBadge(solicitud.estado)}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">MENSAJE ORIGINAL</div>
-      <div class="detalle-panel__valor">${escapeHtml(solicitud.mensajeOriginal || 'Sin mensaje')}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">ID TELEGRAM</div>
-      <div class="detalle-panel__valor">${escapeHtml(solicitud.idTelegram || 'No disponible')}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">FECHA CREACION</div>
-      <div class="detalle-panel__valor">${formatearFechaCompleta(solicitud.fechaCreacion)}</div>
-    </div>
-    <div class="detalle-panel__campo">
-      <div class="detalle-panel__label">ULTIMA ACTUALIZACION</div>
-      <div class="detalle-panel__valor">${solicitud.fechaActualizacion ? formatearFechaCompleta(solicitud.fechaActualizacion) : 'Sin actualizar'}</div>
-    </div>
-  `
-
-  document.getElementById('detalle-overlay').classList.add('detalle-overlay--visible')
-}
-
-/**
- * Cerrar el panel de detalle
- */
-function cerrarDetalle() {
-  document.getElementById('detalle-overlay').classList.remove('detalle-overlay--visible')
-}
-
-// ============================================================
-// POLLING
-// ============================================================
-
-/**
- * Iniciar el polling automático cada 30 segundos
- */
-function iniciarPolling() {
-  estado.pollingId = setInterval(async () => {
-    try {
-      const nuevas = await fetchSolicitudes()
-
-      // Detectar solicitudes nuevas (por _id)
-      const idsActuales = new Set(estado.solicitudes.map(s => s._id))
-      const solicitudesNuevas = nuevas.filter(s => !idsActuales.has(s._id))
-
-      // Marcar las nuevas para animación
-      solicitudesNuevas.forEach(s => { s._nueva = true })
-
-      // Actualizar estado global (incluye cambios de estado remotos)
-      estado.solicitudes = nuevas
-      renderizarTodo()
-
-      // Quitar marca de nueva después de la animación
-      setTimeout(() => {
-        solicitudesNuevas.forEach(s => { delete s._nueva })
-      }, 1000)
-
-      // Actualizar timestamp de última actualización
-      actualizarTimestamp()
-    } catch (e) {
-      console.error('[ERROR] polling:', e.message)
+    if (typeof value === 'object' && value !== null) {
+      valorFormateado = `<div class="detalle-panel__valor--json">${JSON.stringify(value, null, 2)}</div>`;
+    } else {
+      valorFormateado = `<div class="detalle-panel__valor">${value || '—'}</div>`;
     }
-  }, POLLING_INTERVAL)
+
+    return `
+      <div class="detalle-panel__campo">
+        <div class="detalle-panel__label">${key}</div>
+        ${valorFormateado}
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('detalle-overlay').classList.add('detalle-overlay--visible');
 }
 
-/**
- * Actualizar el timestamp del último refresh en el footer
- */
-function actualizarTimestamp() {
-  const el = document.getElementById('ultimo-refresh')
-  if (el) {
-    const ahora = new Date()
-    el.textContent = `${ahora.getHours().toString().padStart(2, '0')}:${ahora.getMinutes().toString().padStart(2, '0')}:${ahora.getSeconds().toString().padStart(2, '0')}`
-  }
+function cerrarDetalle() {
+  document.getElementById('detalle-overlay').classList.remove('detalle-overlay--visible');
 }
 
 // ============================================================
-// INDICADOR DE CONEXIÓN
+// UI HELPERS
 // ============================================================
 
-/**
- * Actualizar el indicador visual de conexión en el header
- */
-function actualizarIndicadorConexion() {
-  const indicador = document.getElementById('indicador-conexion')
-  const texto = document.getElementById('texto-conexion')
+function actualizarIndicadorConexion(conectado) {
+  const indicador = document.getElementById('indicador-conexion');
+  const texto = document.getElementById('texto-conexion');
 
-  if (estado.conectado) {
-    indicador.classList.remove('header__indicador--desconectado')
-    texto.textContent = 'CONECTADO'
+  if (conectado) {
+    indicador.classList.remove('header__indicador--desconectado');
+    texto.textContent = 'CONECTADO';
   } else {
-    indicador.classList.add('header__indicador--desconectado')
-    texto.textContent = 'MODO LOCAL'
+    indicador.classList.add('header__indicador--desconectado');
+    texto.textContent = 'DESCONECTADO';
   }
 }
 
-// ============================================================
-// BANNER MOCK
-// ============================================================
+function actualizarUltimoRefresh() {
+  const ahora = new Date();
+  const tiempo = ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('ultimo-refresh').textContent = tiempo;
+}
 
-/**
- * Mostrar banner indicando que se usan datos de ejemplo
- */
-function mostrarBannerMock() {
-  const banner = document.getElementById('mock-banner')
-  if (banner) {
-    banner.style.display = 'block'
-  }
+function activarModoMock() {
+  console.warn('[DB Manager] Activando modo mock');
+  state.mockMode = true;
+
+  // Mostrar banner
+  document.getElementById('mock-banner').style.display = 'block';
+
+  // Cargar datos mock
+  state.documentos = MOCK_DATA[state.coleccionActual] || [];
+
+  // Actualizar stats con datos mock
+  Object.keys(state.stats).forEach(coleccion => {
+    state.stats[coleccion] = MOCK_DATA[coleccion]?.length || 0;
+  });
+
+  actualizarStatsUI();
+  aplicarFiltros();
+  renderizarTabla();
+  renderizarGraficas();
+  actualizarIndicadorConexion(false);
 }
 
 // ============================================================
-// ERRORES
+// EXPONER FUNCIONES GLOBALES
 // ============================================================
 
-/**
- * Mostrar un mensaje de error temporal
- * @param {string} mensaje - Texto del error
- */
-function mostrarError(mensaje) {
-  const contenedor = document.getElementById('error-container')
-  if (!contenedor) return
+window.mostrarDetalle = mostrarDetalle;
+window.cerrarDetalle = cerrarDetalle;
 
-  contenedor.textContent = mensaje
-  contenedor.classList.add('error-msg--visible')
-
-  // Ocultar después de 5 segundos
-  setTimeout(() => {
-    contenedor.classList.remove('error-msg--visible')
-  }, 5000)
-}
-
-// ============================================================
-// UTILIDADES
-// ============================================================
-
-/**
- * Formatear fecha ISO a formato legible (DD/MM/YYYY)
- * @param {string} fechaStr - Fecha en formato ISO o YYYY-MM-DD
- * @returns {string} Fecha formateada
- */
-function formatearFecha(fechaStr) {
-  if (!fechaStr) return '--/--/----'
-  const partes = fechaStr.split('T')[0].split('-')
-  if (partes.length !== 3) return fechaStr
-  return `${partes[2]}/${partes[1]}/${partes[0]}`
-}
-
-/**
- * Formatear fecha ISO completa con hora
- * @param {string} fechaStr - Fecha en formato ISO
- * @returns {string} Fecha y hora formateadas
- */
-function formatearFechaCompleta(fechaStr) {
-  if (!fechaStr) return '--'
-  try {
-    const fecha = new Date(fechaStr)
-    const dia = fecha.getDate().toString().padStart(2, '0')
-    const mes = (fecha.getMonth() + 1).toString().padStart(2, '0')
-    const anio = fecha.getFullYear()
-    const hora = fecha.getHours().toString().padStart(2, '0')
-    const min = fecha.getMinutes().toString().padStart(2, '0')
-    return `${dia}/${mes}/${anio} ${hora}:${min}`
-  } catch (e) {
-    return fechaStr
-  }
-}
-
-/**
- * Escapar HTML para prevenir XSS
- * @param {string} str - Texto a escapar
- * @returns {string} Texto escapado
- */
-function escapeHtml(str) {
-  const div = document.createElement('div')
-  div.textContent = str
-  return div.innerHTML
-}
+console.log('[DB Manager] Aplicación lista');

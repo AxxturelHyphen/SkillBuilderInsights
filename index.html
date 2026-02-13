@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SISTEMA DE SOLICITUDES</title>
+  <title>SKILLBUILDER DB MANAGER</title>
 
   <!-- JetBrains Mono — única fuente permitida -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
     <!-- HEADER                                             -->
     <!-- ================================================== -->
     <header class="header">
-      <h1 class="header__titulo" data-text="SISTEMA DE SOLICITUDES">SISTEMA DE SOLICITUDES</h1>
+      <h1 class="header__titulo" data-text="SKILLBUILDER DB MANAGER">SKILLBUILDER DB MANAGER</h1>
       <div class="header__estado">
         <span class="header__indicador header__indicador--desconectado" id="indicador-conexion"></span>
         <span id="texto-conexion">VERIFICANDO</span>
@@ -30,65 +30,77 @@
     <!-- Banner modo mock (oculto por defecto) -->
     <div class="mock-banner" id="mock-banner" style="display: none;">
       [MODO DEMO] MONGODB NO CONFIGURADO — MOSTRANDO DATOS DE EJEMPLO.
-      EDITAR config.js PARA CONECTAR A MONGODB ATLAS.
     </div>
 
     <!-- Contenedor de errores -->
     <div class="error-msg" id="error-container"></div>
 
     <!-- ================================================== -->
-    <!-- ESTADÍSTICAS RÁPIDAS                               -->
+    <!-- ESTADÍSTICAS DE COLECCIONES                        -->
     <!-- ================================================== -->
-    <div class="seccion-titulo">ESTADISTICAS RAPIDAS</div>
+    <div class="seccion-titulo">ESTADISTICAS DE COLECCIONES</div>
     <div class="stats">
       <div class="stats__card">
-        <div class="stats__label">TOTAL</div>
-        <div class="stats__valor" id="stat-total">--</div>
+        <div class="stats__label">MENTORS</div>
+        <div class="stats__valor" id="stat-mentors">--</div>
       </div>
       <div class="stats__card">
-        <div class="stats__label">PENDIENTE</div>
-        <div class="stats__valor" id="stat-pendiente">--</div>
+        <div class="stats__label">PROJECTS</div>
+        <div class="stats__valor" id="stat-projects">--</div>
       </div>
       <div class="stats__card">
-        <div class="stats__label">CONFIRMADA</div>
-        <div class="stats__valor" id="stat-confirmada">--</div>
+        <div class="stats__label">TASKS</div>
+        <div class="stats__valor" id="stat-tasks">--</div>
       </div>
       <div class="stats__card">
-        <div class="stats__label">DENEGADA</div>
-        <div class="stats__valor" id="stat-denegada">--</div>
+        <div class="stats__label">USERS</div>
+        <div class="stats__valor" id="stat-users">--</div>
+      </div>
+      <div class="stats__card">
+        <div class="stats__label">RESOURCES</div>
+        <div class="stats__valor" id="stat-resources">--</div>
       </div>
     </div>
 
     <!-- ================================================== -->
-    <!-- FILTROS                                            -->
+    <!-- SELECTOR DE COLECCIÓN                              -->
     <!-- ================================================== -->
-    <div class="seccion-titulo">FILTROS</div>
+    <div class="seccion-titulo">COLECCION ACTIVA</div>
     <div class="filtros" id="filtros">
-      <button class="filtros__btn filtros__btn--activo" data-filtro="">TODAS</button>
-      <button class="filtros__btn" data-filtro="pendiente">PENDIENTE</button>
-      <button class="filtros__btn" data-filtro="confirmada">CONFIRMADA</button>
-      <button class="filtros__btn" data-filtro="denegada">DENEGADA</button>
+      <button class="filtros__btn filtros__btn--activo" data-coleccion="mentors">MENTORS</button>
+      <button class="filtros__btn" data-coleccion="projects">PROJECTS</button>
+      <button class="filtros__btn" data-coleccion="tasks">TASKS</button>
+      <button class="filtros__btn" data-coleccion="users">USERS</button>
+      <button class="filtros__btn" data-coleccion="resources">RESOURCES</button>
     </div>
 
     <!-- ================================================== -->
-    <!-- TABLA DE SOLICITUDES                               -->
+    <!-- BARRA DE BÚSQUEDA                                  -->
     <!-- ================================================== -->
-    <div class="seccion-titulo">SOLICITUDES</div>
+    <div class="seccion-titulo">BUSCAR EN COLECCION</div>
+    <div class="search-bar">
+      <input
+        type="text"
+        class="search-bar__input"
+        id="search-input"
+        placeholder="BUSCAR POR NOMBRE, EMAIL, ID..."
+      >
+      <button class="search-bar__btn" id="search-btn">BUSCAR</button>
+      <button class="search-bar__btn" id="clear-btn">LIMPIAR</button>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- TABLA DE DOCUMENTOS                                -->
+    <!-- ================================================== -->
+    <div class="seccion-titulo">DOCUMENTOS <span id="coleccion-nombre">MENTORS</span></div>
     <div class="tabla-wrapper">
       <table class="tabla">
-        <thead>
-          <tr>
-            <th>JORGE</th>
-            <th>JORGE</th>
-            <th>JORGE / JORGE</th>
-            <th>JORGE</th>
-            <th>JORGE</th>
-            <th>JORGE</th>
-          </tr>
+        <thead id="tabla-head">
+          <!-- Dinámicamente generado -->
         </thead>
         <tbody id="tabla-body">
           <tr>
-            <td colspan="6" class="tabla-vacia">
+            <td colspan="10" class="tabla-vacia">
               <span class="loading-text">CARGANDO</span>
             </td>
           </tr>
@@ -97,17 +109,29 @@
     </div>
 
     <!-- ================================================== -->
-    <!-- GRÁFICAS                                           -->
+    <!-- CONTROLES DE PAGINACIÓN                            -->
     <!-- ================================================== -->
-    <div class="seccion-titulo">JORGE</div>
+    <div class="paginacion">
+      <button class="paginacion__btn" id="prev-btn" disabled>← ANTERIOR</button>
+      <div class="paginacion__info">
+        PAGINA <span id="pagina-actual">1</span> |
+        DOCUMENTOS <span id="documentos-desde">0</span>-<span id="documentos-hasta">0</span> DE <span id="documentos-total">0</span>
+      </div>
+      <button class="paginacion__btn" id="next-btn" disabled>SIGUIENTE →</button>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- GRÁFICAS DE DISTRIBUCIÓN                           -->
+    <!-- ================================================== -->
+    <div class="seccion-titulo">ANALYTICS</div>
     <div class="graficas">
       <div class="grafica-card">
-        <div class="grafica-card__titulo">JORGE POR DIA (ULTIMOS 7 DIJORGEAS)</div>
-        <div id="grafica-barras"></div>
+        <div class="grafica-card__titulo">DISTRIBUCIÓN DE ESTADOS (TASKS)</div>
+        <div id="grafica-estados"></div>
       </div>
       <div class="grafica-card">
-        <div class="grafica-card__titulo">JORGE DE ESTADOS</div>
-        <div id="grafica-estados"></div>
+        <div class="grafica-card__titulo">ACTIVIDAD RECIENTE (ÚLTIMOS 7 DÍAS)</div>
+        <div id="grafica-actividad"></div>
       </div>
     </div>
 
@@ -117,10 +141,10 @@
     <footer class="footer">
       <div class="footer__polling">
         <span class="footer__pulse"></span>
-        JORGE ACTIVO — CADA 30S
+        AUTO-REFRESH ACTIVO — CADA 30S
       </div>
       <div>
-        ULTIMO JORGE: <span id="ultimo-refresh">--:--:--</span>
+        ULTIMO REFRESH: <span id="ultimo-refresh">--:--:--</span>
       </div>
     </footer>
 
@@ -131,16 +155,13 @@
   <!-- ================================================== -->
   <div class="detalle-overlay" id="detalle-overlay">
     <div class="detalle-panel">
-      <div class="detalle-panel__titulo">DETALLE DE JORGE</div>
+      <div class="detalle-panel__titulo">DETALLE DEL DOCUMENTO</div>
       <div id="detalle-contenido"></div>
-      <button class="detalle-panel__cerrar" onclick="cerrarDetalle()">CERRAR JORGE</button>
+      <button class="detalle-panel__cerrar" onclick="cerrarDetalle()">CERRAR</button>
     </div>
   </div>
 
-  <!-- Scripts (orden importante: config → mongodb → charts → app) -->
-  <script src="config.js"></script>
-  <script src="mongodb.js"></script>
-  <script src="charts.js"></script>
+  <!-- Scripts -->
   <script src="app.js"></script>
 
 </body>
