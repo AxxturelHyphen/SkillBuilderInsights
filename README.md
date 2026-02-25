@@ -7,6 +7,13 @@ MongoDB database administration interface with real-time updates, brutalist desi
 SkillBuilder DB Manager es una aplicación web completa (frontend + backend) que proporciona una interfaz de administración para colecciones MongoDB (mentors, projects, tasks, users, resources). El dashboard permite visualizar, buscar y administrar documentos con actualización automática de datos, estadísticas detalladas y representaciones gráficas de la información.
 
 La aplicación incluye un backend Express.js que se conecta directamente a MongoDB Atlas usando el driver nativo, proporcionando una API REST para que el frontend consuma los datos de forma segura. También ofrece un modo de demostración con datos de ejemplo cuando no hay conexión configurada, lo que facilita el desarrollo y las pruebas.
+## Diagramas
+
+## Flujo
+
+## Diagramas
+
+
 
 ## Características principales
 
