@@ -1,0 +1,724 @@
+{
+  "name": "Telegram → Gemini → MongoDB (Citas)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        32
+      ],
+      "id": "a485a6a4-93fc-4b3d-9273-94043af8f50a",
+      "webhookId": "190fbfbf-8dee-4b97-a2ed-e1a2bc4fd7b6",
+      "credentials": {
+        "telegramApi": {
+          "id": "NZiMP4rV3bZXdtYz",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "name": "Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        176
+      ],
+      "id": "5d209a5c-414e-40b4-83a6-a215a4328bfc",
+      "webhookId": "066d5143-b342-45d9-8495-22db5915afdb",
+      "credentials": {
+        "telegramApi": {
+          "id": "NZiMP4rV3bZXdtYz",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "!update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "e69aaca4-613a-41bb-81f4-72ec67e76fa3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9b2dfab8-e4df-4249-b1de-4dff8ca5516a",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "!insert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8c08d1a9-de7b-49d6-a3d3-351b1b67d4da",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "!find",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5c49018e-70a4-4c12-aeb4-849f75b39b46",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "!delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        144,
+        -16
+      ],
+      "id": "eee66105-09f6-4ac8-9daa-0bd9db758333",
+      "name": "Switch",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "={{ $json.collection }}",
+        "fields": "={{ $json.fields }}",
+        "options": {
+          "useDotNotation": false
+        }
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1104,
+        -48
+      ],
+      "id": "e1383789-65b1-4630-a444-e0e9ed4a1ee8",
+      "name": "Insert documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "oaIANjNdm33pa9uQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "={{ $json.collection }}",
+        "options": {},
+        "query": "={{ JSON.stringify($json.filter) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1104,
+        176
+      ],
+      "id": "b43797b6-9baf-4fed-99b6-f60b51567d54",
+      "name": "Find documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "oaIANjNdm33pa9uQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst resultados = [];\n\nfor (const item of items) {\n  let textoIA = \"\";\n  \n  if (item.json.content?.parts?.[0]) {\n    textoIA = item.json.content.parts[0].text;\n  } else if (item.json.text) {\n    textoIA = item.json.text;\n  }\n\n  textoIA = textoIA.replace(/```json/gi, '').replace(/```/gi, '').trim();\n\n  try {\n    const datos = JSON.parse(textoIA);\n\n    const coleccion = datos.coleccion;\n    if (!coleccion) throw new Error(\"coleccion es obligatoria\");\n\n    const id = datos.filtro?._id;\n    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {\n      throw new Error(\"_id inválido\");\n    }\n\n    const updateSet = datos.update?.$set;\n    if (!updateSet || Object.keys(updateSet).length === 0) {\n      throw new Error(\"No hay campos para actualizar en update.$set\");\n    }\n\n    const fieldsArray = Object.keys(updateSet);\n    const fields = fieldsArray.join(\", \"); // 👈 ahora es un string separado por comas\n\n    // Construimos el objeto principal y agregamos los campos de updateSet\n    const resultado = {\n      _id: id,\n      fields: fields, // 👈 aquí usamos el string con comas\n      collection: coleccion,\n      update: {\n        id: id,\n        set: updateSet\n      },\n      ...updateSet // añadimos los campos directamente al objeto principal\n    };\n\n    resultados.push({ json: resultado });\n\n  } catch (error) {\n    throw new Error(\n      \"La IA no devolvió un JSON válido. Texto: \" +\n      textoIA +\n      \" | Error: \" +\n      error.message\n    );\n  }\n}\n\nreturn resultados;\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -256
+      ],
+      "id": "474887c7-6759-432c-85c7-a3d51423877b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst resultados = [];\n\nfor (const item of items) {\n  let textoIA = \"\";\n\n  // Tomar el JSON que viene dentro de content.parts[0].text\n  if (item.json.content?.parts?.[0]?.text) {\n    textoIA = item.json.content.parts[0].text;\n  } else if (item.json.text) {\n    textoIA = item.json.text;\n  }\n\n  textoIA = (textoIA || \"\").replace(/```json/gi, '').replace(/```/gi, '').trim();\n\n  if (!textoIA) continue;\n\n  try {\n    const datos = JSON.parse(textoIA);\n\n    const coleccion = datos.coleccion;\n    if (!coleccion) throw new Error(\"coleccion es obligatoria\");\n\n    const filtro = datos.filtro || {};\n\n    resultados.push({ json: { collection: coleccion, filter: filtro } });\n\n  } catch (error) {\n    resultados.push({ json: { error: \"No se pudo parsear el item: \" + error.message } });\n  }\n}\n\n// Devolver siempre un array\nreturn resultados.length > 0 ? resultados : [{ json: { error: \"No se procesó ningún item\" } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        176
+      ],
+      "id": "8269b427-1f4d-4363-a160-379526b55bc2",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.message.text }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "Eres un microservicio backend estricto. Tu única función es traducir lenguaje natural a un objeto JSON con sintaxis de actualización para MongoDB. NUNCA ejecutas acciones, NUNCA conversas, NUNCA haces preguntas.\n\nREGLA DE INFERENCIA DE COLECCIÓN (CRÍTICO)\nAnaliza el sujeto de la petición del usuario y usa este diccionario para deducir el nombre oficial de la colección:\n{{ JSON.stringify($json.contexto.diccionario_colecciones) }}\nUsa el valor oficial como el campo \"coleccion\".\n\nREGLAS DE SINTAXIS MONGODB\nEl campo \"update\" debe contener SIEMPRE modificadores válidos de MongoDB (como \"$set\", \"$inc\", \"$push\").\nEl campo \"filtro\" identifica a quién se actualiza. NUNCA puede estar vacío.\n\nESTRUCTURA DE SALIDA OBLIGATORIA\nDevuelve ÚNICA Y EXCLUSIVAMENTE este JSON válido. Cero texto adicional. Cero bloques de código markdown (prohibido usar ```json).\n{\n  \"coleccion\": \"nombre_oficial_deducido\",\n  \"filtro\": { },\n  \"update\": { }\n\nCOLECCIONES Y CAMPOS\nColección 'mentors': requiere { _id,name,email,skills[skillId,level]}\nColección 'projects': requiere { _id,workspaceId,name,description,owner,mentor,taskCounts}\nColección 'resources': requiere { _id,workspaceId,projectId,name,type,url}\nColección 'tasks': requiere { _id,workspaceId,projectId,title,status,mentorId}\nColección 'users': requiere { _id,workspaceId,name,email}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        -256
+      ],
+      "id": "be531722-5dd6-4bc3-aeb9-4b06350a0100",
+      "name": "Ia update",
+      "executeOnce": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "JOBwssrLovmbx4ws",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $('Telegram Trigger').item.json.message.text }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "ROL\nEres un microservicio backend estricto. Tu única función es extraer información de un texto en lenguaje natural y traducirla a un objeto JSON listo para ser insertado como un nuevo documento en MongoDB. \nNUNCA conversas, NUNCA haces preguntas, NUNCA simulas acciones.\n\nREGLA DE INFERENCIA DE COLECCIÓN (CRÍTICO)\nAnaliza de qué tipo de registro habla el usuario (mentor, alumno, cliente...) y usa este diccionario para deducir el nombre oficial de la colección en la base de datos:\n{{ JSON.stringify($json.contexto.diccionario_colecciones) }}\nUsa el valor oficial como el campo \"coleccion\".\nREGLAS DE EXTRACCIÓN Y NORMALIZACIÓN DE DATOS\nExtrae todos los datos que el usuario mencione y ponlos dentro del objeto \"datos\".\nNormaliza la información:\nLos nombres propios y apellidos deben tener la primera letra en mayúscula.\nLos correos electrónicos (emails) deben ir siempre en minúsculas.\nLos números (teléfonos, edades) deben ser números reales en el JSON, no texto (salvo que requieran prefijos como el +34).\n\nESTRUCTURA DE SALIDA OBLIGATORIA\nDevuelve ÚNICA Y EXCLUSIVAMENTE este JSON válido. Cero texto adicional. Cero saludos. Prohibido usar bloques de código markdown (```json).\n{\n  \"coleccion\": \"nombre_oficial_deducido\",\n  \"datos\": {\n    \"campo1\": \"valor extraído\",\n    \"campo2\": \"valor extraído\"\n  }\n}\n\nCOLECCIONES Y CAMPOS\nColección 'mentors': requiere { _id,name,email,skills[skillId,level]}\nColección 'projects': requiere { _id,workspaceId,name,description,owner,mentor,taskCounts}\nColección 'resources': requiere { _id,workspaceId,projectId,name,type,url}\nColección 'tasks': requiere { _id,workspaceId,projectId,title,status,mentorId}\nColección 'users': requiere { _id,workspaceId,name,email}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        -48
+      ],
+      "id": "c4d1816d-939b-47bb-8ad0-978177a163d7",
+      "name": "ia insert",
+      "executeOnce": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "JOBwssrLovmbx4ws",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $('Telegram Trigger').item.json.message.text }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "### ROL Eres un microservicio backend estricto. Tu única función es traducir lenguaje natural a un objeto JSON que sirva como filtro de búsqueda para MongoDB. \n NUNCA inventes datos (ni emails, ni nombres, ni skills).\n NUNCA simules una respuesta de base de datos. NO conversas. \n ### REGLA DE INFERENCIA DE COLECCIÓN (CRÍTICO) Analiza el sujeto de la petición del usuario y usa este diccionario para deducir el nombre oficial de la colección: {{ JSON.stringify($json.contexto.diccionario_colecciones) }}  \n### REGLAS DE SINTAXIS MONGODB 1. Construye el objeto \"filtro\" basándote SOLO en los datos que el usuario te ha dado para buscar. 2. Si el usuario pide buscar a \"Yen Sid\", tu filtro debe ser {\"name\": \"Yen Sid\"} o similar, dependiendo de los campos lógicos.  ### ESTRUCTURA DE SALIDA OBLIGATORIA Devuelve ÚNICA Y EXCLUSIVAMENTE este JSON válido. Cero texto adicional. Prohibido usar bloques markdown (```json). {   \"coleccion\": \"nombre_oficial_deducido\",   \"filtro\": { } }\n\nCOLECCIONES Y CAMPOS\nColección 'mentors': requiere { _id,name,email,skills[skillId,level]}\nColección 'projects': requiere { _id,workspaceId,name,description,owner,mentor,taskCounts}\nColección 'resources': requiere { _id,workspaceId,projectId,name,type,url}\nColección 'tasks': requiere { _id,workspaceId,projectId,title,status,mentorId}\nColección 'users': requiere { _id,workspaceId,name,email}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        160
+      ],
+      "id": "8d26e9de-06d2-4542-b40c-c9c4b1d297dc",
+      "name": "ia find",
+      "executeOnce": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "JOBwssrLovmbx4ws",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst resultados = [];\n\nfor (const item of items) {\n  let textoIA = \"\";\n  \n  if (item.json.content?.parts?.[0]) {\n    textoIA = item.json.content.parts[0].text;\n  } else if (item.json.text) {\n    textoIA = item.json.text;\n  }\n\n  textoIA = textoIA.replace(/```json/gi, '').replace(/```/gi, '').trim();\n\n  try {\n    const datos = JSON.parse(textoIA);\n\n    const coleccion = datos.coleccion;\n    if (!coleccion) throw new Error(\"coleccion es obligatoria\");\n\n    const datosInsert = datos.datos;\n    if (!datosInsert || Object.keys(datosInsert).length === 0) {\n      throw new Error(\"datos es obligatorio y no puede estar vacío\");\n    }\n\n    // Separar _id si existe\n    const id = datosInsert._id || null;\n\n    // Crear lista de fields excluyendo _id\n    const fieldsArray = Object.keys(datosInsert).filter(key => key !== \"_id\");\n    const fields = fieldsArray.join(\", \"); // string separado por comas\n\n    // Construir el objeto principal\n    const resultado = {\n      collection: coleccion,\n      _id: id,\n      ...datosInsert,\n      fields: fields,      // 👈 agregamos fields\n      insert: datosInsert  // mantener todos los datos dentro de insert\n    };\n\n    resultados.push({ json: resultado });\n\n  } catch (error) {\n    throw new Error(\n      \"La IA no devolvió un JSON válido. Texto: \" +\n      textoIA +\n      \" | Error: \" +\n      error.message\n    );\n  }\n}\n\nreturn resultados;\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -48
+      ],
+      "id": "a3274aef-4e5a-4354-9dda-0c7213b95e3d",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "name": "Telegram Reply1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -48
+      ],
+      "id": "9a821c76-728d-4dd7-b793-4f669c1afb49",
+      "webhookId": "066d5143-b342-45d9-8495-22db5915afdb",
+      "credentials": {
+        "telegramApi": {
+          "id": "NZiMP4rV3bZXdtYz",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "name": "Telegram Reply2",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -288
+      ],
+      "id": "881b13fd-d0ea-466c-8aad-6a46197dfef3",
+      "webhookId": "066d5143-b342-45d9-8495-22db5915afdb",
+      "credentials": {
+        "telegramApi": {
+          "id": "NZiMP4rV3bZXdtYz",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=\"No se pueden realizar borrados en la base de datos\n⚠️⚠️⚠️ES MUY PELIGROSO⚠️⚠️⚠️\"",
+        "additionalFields": {}
+      },
+      "name": "Telegram Reply3",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        528,
+        368
+      ],
+      "id": "c5ce33fa-515a-4f5b-a03a-08ec6e0f267a",
+      "webhookId": "066d5143-b342-45d9-8495-22db5915afdb",
+      "credentials": {
+        "telegramApi": {
+          "id": "NZiMP4rV3bZXdtYz",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "={{ $json.collection }}",
+        "updateKey": "=_id",
+        "fields": "={{ $json.fields }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1104,
+        -288
+      ],
+      "id": "769d456a-29a4-4a67-a880-1637f3a3780f",
+      "name": "Update documents",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "oaIANjNdm33pa9uQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst mensajes = [];\n\nfor (const item of items) {\n  const datos = item.json; // directamente el objeto JSON\n\n  if (!datos || Object.keys(datos).length === 0) continue;\n\n  // Construir la lista de \"field: valor\"\n  const partes = Object.entries(datos).map(([key, value]) => {\n    if (typeof value === \"object\") {\n      value = JSON.stringify(value);\n    }\n    return `${key}: ${value}`;\n  });\n\n  const mensaje = \"Se ha actualizado correctamente: \" + partes.join(\", \");\n\n  mensajes.push({ json: { mensaje } });\n}\n\n// Siempre devolver un array, aunque esté vacío\nreturn mensajes.length > 0 ? mensajes : [{ json: { mensaje: \"No se procesó ningún item\" } }];\n\n "
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -288
+      ],
+      "id": "314c0919-7857-40bc-886f-3f526cfc4085",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst mensajes = [];\n\n// Función para escapar caracteres especiales de MarkdownV2\nfunction escapeMarkdownV2(text) {\n  return String(text).replace(/([_*\\[\\]()~`>#+\\-=|{}.!])/g, '\\\\$1');\n}\n\nfor (const item of items) {\n  const datos = item.json; // directamente el objeto JSON\n\n  if (!datos || Object.keys(datos).length === 0) continue;\n\n  // Filtrar claves duplicadas: si hay _id e id con el mismo valor, solo tomar uno\n  const seenValues = new Set();\n  const uniqueEntries = Object.entries(datos).filter(([key, value]) => {\n    const valStr = typeof value === \"object\" ? JSON.stringify(value) : String(value);\n    if (seenValues.has(valStr)) return false;\n    seenValues.add(valStr);\n    return true;\n  });\n\n  // Construir la lista de \"field: valor\" escapando caracteres\n  const partes = uniqueEntries.map(([key, value]) => {\n    if (typeof value === \"object\") value = JSON.stringify(value);\n    return `${escapeMarkdownV2(key)}: ${escapeMarkdownV2(value)}`;\n  });\n\n  const mensaje = \"Se ha introducido correctamente: \" + partes.join(\", \");\n\n  mensajes.push({ json: { mensaje } });\n}\n\n// Siempre devolver un array, aunque esté vacío\nreturn mensajes.length > 0 ? mensajes : [{ json: { mensaje: \"No se procesó ningún item\" } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        -48
+      ],
+      "id": "84282196-6607-4f7a-ba1b-09653fa28f0d",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst mensajes = [];\n\n// Escapar caracteres problemáticos para MarkdownV2, pero dejar los puntos intactos\nfunction escapeTelegram(text) {\n  return String(text).replace(/([_*[\\]()~`>#+\\-=|{}!])/g, '\\\\$1');\n}\n\n// Función recursiva para aplanar objetos y arrays\nfunction flatten(obj, parentKey = '') {\n  const entries = [];\n  for (const [key, value] of Object.entries(obj)) {\n    const newKey = parentKey ? `${parentKey}.${key}` : key;\n    if (Array.isArray(value)) {\n      value.forEach((v, i) => {\n        if (typeof v === 'object') {\n          entries.push(...flatten(v, `${newKey}[${i}]`));\n        } else {\n          entries.push({ key: `${newKey}[${i}]`, value: v });\n        }\n      });\n    } else if (typeof value === 'object' && value !== null) {\n      entries.push(...flatten(value, newKey));\n    } else {\n      entries.push({ key: newKey, value });\n    }\n  }\n  return entries;\n}\n\nfor (const item of items) {\n  const datos = item.json;\n\n  if (!datos || Object.keys(datos).length === 0) continue;\n\n  const flatEntries = flatten(datos);\n\n  // Construir mensaje para Telegram, sin escapar los puntos\n  const partes = flatEntries.map(e => `${escapeTelegram(e.key)}: ${escapeTelegram(e.value)}`);\n  const mensaje = \"Se ha encontrado el registro con los siguientes campos:\\n\" + partes.join('\\n');\n\n  mensajes.push({ json: { mensaje } });\n}\n\n// Siempre devolver un array\nreturn mensajes.length > 0 ? mensajes : [{ json: { mensaje: \"No se encontró ningún registro\" } }];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        176
+      ],
+      "id": "703450db-53f4-4130-8c65-f0ee98e71b6b",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "content": "UPDATE"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        496,
+        -288
+      ],
+      "typeVersion": 1,
+      "id": "75307543-01ad-40bc-8afe-eb399b256051",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "INSERT"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "f1149c78-c3aa-41ae-862c-cedc6e5bd254",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "FIND"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        112
+      ],
+      "typeVersion": 1,
+      "id": "4eba36d5-140d-413a-9c36-76e44a30d23b",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "DELETE"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        336
+      ],
+      "typeVersion": 1,
+      "id": "29156722-b460-4ac4-bad2-66d2af17c337",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Ia update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ia insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ia find",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Reply3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert documents": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Find documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ia update": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ia insert": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ia find": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find documents": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Insert documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update documents": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "565853d0-9306-44b5-a257-f1166a91b7d1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6998b2e87e57e4f0c698a2637fe41e348d61e44d7f73e6501ee58ec0e14a0606"
+  },
+  "id": "AVFnLRyT5HxIJy1A",
+  "tags": []
+}
